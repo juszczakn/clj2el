@@ -1,3 +1,8 @@
+(defun el2clj-replace-map ()
+  (beginning-of-buffer)
+  (while (search-forward-regexp "\\bmap\\b" nil t)
+    (replace-match "el2clj-map")))
+
 (defun el2clj-replace-let ()
   (beginning-of-buffer)
   (while (search-forward-regexp "let[[:blank:]]*\\[" nil t)
@@ -30,5 +35,6 @@
     (el2clj-replace-hash-maps)
     (el2clj-replace-lambdas)
     (el2clj-replace-let)
+    (el2clj-replace-map)
     (write-file new-buf-name)
     (kill-buffer new-buf)))

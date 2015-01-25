@@ -27,7 +27,14 @@
 (defmacro el2clj-make-hash-table (&rest contents)
   (let ((sym (gensym))
         (pd-contents (el2clj-partition-list contents)))
-    `(list 'progn
-           (quote (setf ,sym (make-hash-table :test 'equal)))
-           (quote (progn ,@(mapcar (lambda (x) (list 'puthash (car x) (cadr x) sym)) pd-contents)))
-           (quote ,sym))))
+    (list 'progn
+          `(setf ,sym (make-hash-table :test 'equal))
+          `(progn ,@(mapcar (lambda (x) (list 'puthash (car x) (cadr x) sym)) pd-contents))
+          sym)))
+
+(defmacro el2clj-let (param-array &optional body)
+  (list 'let* (el2clj-partition-list (el2clj-convert-arr-to-list param-array))
+        body))
+
+(defmacro el2clj-map (f elts)
+  (list 'mapcar f elts))

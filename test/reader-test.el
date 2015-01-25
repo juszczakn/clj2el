@@ -4,5 +4,11 @@
 ;; lambdas
 #(+ % %2)
 
+;; 
+(defn f [x]
+  (let [y 10
+        z (+ x y)]
+    (map #(+ % 1) (list x y z))))
+
 ;; lets
-(let [x 10] (hi))
+(let [x 10] (f x))
