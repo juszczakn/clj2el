@@ -120,3 +120,14 @@
     (clj2el-replace-map)
     (write-file new-buf-name)
     (kill-buffer new-buf)))
+
+
+;; -------------------------------------------------------------------------------------
+
+(provide 'clj2el)
+
+;; Local Variables:
+;; Coding: utf-8
+;; End:
+
+;;; clj2el.el ends here
