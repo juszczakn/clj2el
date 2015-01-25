@@ -38,3 +38,6 @@
 
 (defmacro el2clj-map (f elts)
   (list 'mapcar f elts))
+
+(defmacro str (&rest s)
+  (list 'apply (quote 'concat) `(quote ,s)))
