@@ -26,10 +26,10 @@
 
 (require 'paredit)
 
+;; Anything that clashes with current elisp namespace needs to go in here
 
 ;; -------------------------------------------------------------------------------------
 ;; macros 
-
 
 (defun clj2el-convert-arr-to-list (arr)
   (mapcar (lambda (x) x) arr))
@@ -40,12 +40,13 @@
 (defmacro def (name body)
   (list 'setf name body))
 
-(defmacro defn (name param-list &optional body)
-  (let* ((param-list (clj2el-convert-arr-to-list param-list)))
-    (fset name `(lambda ,param-list ,body))))
+(defmacro defn (name param-list &rest body)
+  (let ((param-list (clj2el-convert-arr-to-list param-list)))
+    `(defun ,name ,param-list ,@body)))
 
-(defmacro doc (sym)
-  (list 'documentation sym))
+(defmacro clj2el-macro (name param-list &rest body)
+  (let ((param-list (clj2el-convert-arr-to-list param-list)))
+    `(defmacro ,name ,param-list ,@body)))
 
 (defun clj2el-partition-list (elts)
   (setf part-list nil)
@@ -65,20 +66,40 @@
           `(progn ,@(mapcar (lambda (x) (list 'puthash (car x) (cadr x) sym)) pd-contents))
           sym)))
 
-(defmacro clj2el-let (param-array &optional body)
-  (list 'let* (clj2el-partition-list (clj2el-convert-arr-to-list param-array))
-        body))
+(defmacro clj2el-let (param-array &rest body)
+  `(let* ,(clj2el-partition-list (clj2el-convert-arr-to-list param-array))
+     ,@body))
 
-(defmacro clj2el-map (f elts)
+(defmacro clj2el= (a b)
+  `(equal ,a ,b))
+
+(defmacro clj2el-map [f elts]
   (list 'mapcar f elts))
 
-(defmacro str (&rest s)
-  (list 'apply (quote 'concat) `(quote ,s)))
-
+(defmacro clj2el-nth [coll index]
+  (let [type (type-of coll)]
+    `(if (= (type-of ,coll) (quote cons))
+         ,(list 'nth index coll)
+       (if (= (type-of ,coll) (quote vector))
+           ,(list 'aref coll index)))))
 
 ;; -------------------------------------------------------------------------------------
 ;; reader
 
+(defun clj2el-replace-= ()
+  (beginning-of-buffer)
+  (while (search-forward-regexp "([[:space:]]*nth" nil t)
+    (replace-match "(clj2el-nth")))
+
+(defun clj2el-replace-= ()
+  (beginning-of-buffer)
+  (while (search-forward-regexp "([[:space:]]*=" nil t)
+    (replace-match "(clj2el=")))
+
+(defun clj2el-replace-macro ()
+  (beginning-of-buffer)
+  (while (search-forward "defmacro" nil t)
+    (replace-match "clj2el-macro")))
 
 (defun clj2el-replace-map ()
   (beginning-of-buffer)
@@ -87,7 +108,7 @@
 
 (defun clj2el-replace-let ()
   (beginning-of-buffer)
-  (while (search-forward-regexp "let[[:blank:]]*\\[" nil t)
+  (while (search-forward-regexp "let[[:space:]]*\\[" nil t)
     (replace-match "clj2el-let [")))
 
 (defun clj2el-replace-lambdas ()
@@ -106,21 +127,35 @@
   (while (search-forward "}" nil t)
     (replace-match ")")))
 
+(defun clj2el-replace-essential-str ()
+  (clj2el-replace-hash-maps)
+  (clj2el-replace-lambdas)
+  (clj2el-replace-let)
+  (clj2el-replace-=)
+  (clj2el-replace-map)
+  (clj2el-replace-macro))
+
 (defun clj2el-compile-buffer ()
-  (interactive)
   (let* ((cur-buf-substring (buffer-substring-no-properties 1 (point-max)))
          (cur-buf-name (buffer-file-name))
          (new-buf-name (concat cur-buf-name "j"))
          (new-buf (generate-new-buffer (generate-new-buffer-name "compilation-buffer"))))
     (set-buffer new-buf)
     (insert cur-buf-substring)
-    (clj2el-replace-hash-maps)
-    (clj2el-replace-lambdas)
-    (clj2el-replace-let)
-    (clj2el-replace-map)
+    (clj2el-replace-essential-str)
     (write-file new-buf-name)
+    new-buf))
+
+(defun clj2el-compile-buffer-and-eval ()
+  (interactive)
+  (let ((new-buf (clj2el-compile-buffer)))
+    (eval-buffer)
     (kill-buffer new-buf)))
 
+(defun clj2el-compile-buffer-dont-eval ()
+  (interactive)
+  (let ((new-buf (clj2el-compile-buffer)))
+    (kill-buffer new-buf)))
 
 ;; -------------------------------------------------------------------------------------
 
