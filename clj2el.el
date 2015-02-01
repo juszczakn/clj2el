@@ -24,29 +24,17 @@
 
 ;;; Code:
 
+(require 'cl)
 (require 'paredit)
 
 ;; Anything that clashes with current elisp namespace needs to go in here
+;; including edn
 
 ;; -------------------------------------------------------------------------------------
 ;; macros 
 
 (defun clj2el-convert-arr-to-list (arr)
   (mapcar (lambda (x) x) arr))
-
-(defmacro fn (param-list body)
-  (list 'lambda (clj2el-convert-arr-to-list param-list) body))
-
-(defmacro def (name body)
-  (list 'setf name body))
-
-(defmacro defn (name param-list &rest body)
-  (let ((param-list (clj2el-convert-arr-to-list param-list)))
-    `(defun ,name ,param-list ,@body)))
-
-(defmacro clj2el-macro (name param-list &rest body)
-  (let ((param-list (clj2el-convert-arr-to-list param-list)))
-    `(defmacro ,name ,param-list ,@body)))
 
 (defun clj2el-partition-list (elts)
   (setf part-list nil)
@@ -66,6 +54,12 @@
           `(progn ,@(mapcar (lambda (x) (list 'puthash (car x) (cadr x) sym)) pd-contents))
           sym)))
 
+;; --------------------------------------------
+
+(defmacro clj2el-macro (name param-list &rest body)
+  (let ((param-list (clj2el-convert-arr-to-list param-list)))
+    `(defmacro ,name ,param-list ,@body)))
+
 (defmacro clj2el-let (param-array &rest body)
   `(let* ,(clj2el-partition-list (clj2el-convert-arr-to-list param-array))
      ,@body))
@@ -73,27 +67,29 @@
 (defmacro clj2el= (a b)
   `(equal ,a ,b))
 
-(defmacro clj2el-map [f elts]
-  (list 'mapcar f elts))
+(defmacro clj2el-map (f elts)
+  `(mapcar ,f ,elts))
 
-(defmacro clj2el-nth [coll index]
-  (let [type (type-of coll)]
-    `(if (= (type-of ,coll) (quote cons))
-         ,(list 'nth index coll)
-       (if (= (type-of ,coll) (quote vector))
-           ,(list 'aref coll index)))))
+(defmacro clj2el-nth (coll index)
+  (let ((type (type-of coll)))
+    (if (equal (type-of coll) 'cons)
+        `(nth ,index ,coll)
+      (if (equal (type-of coll) 'vector)
+           `(aref ,coll ,index)))))
 
 ;; -------------------------------------------------------------------------------------
 ;; reader
 
-(defun clj2el-replace-= ()
+;; These need to be touched up. Handling the simplest cases now
+
+(defun clj2el-replace-nth ()
   (beginning-of-buffer)
-  (while (search-forward-regexp "([[:space:]]*nth" nil t)
-    (replace-match "(clj2el-nth")))
+  (while (search-forward-regexp "([[:space:]]*nth[[:space:]]+" nil t)
+    (replace-match "clj2el-nth")))
 
 (defun clj2el-replace-= ()
   (beginning-of-buffer)
-  (while (search-forward-regexp "([[:space:]]*=" nil t)
+  (while (search-forward-regexp "([[:space:]]*=[[:space:]]+" nil t)
     (replace-match "(clj2el=")))
 
 (defun clj2el-replace-macro ()
@@ -108,7 +104,7 @@
 
 (defun clj2el-replace-let ()
   (beginning-of-buffer)
-  (while (search-forward-regexp "let[[:space:]]*\\[" nil t)
+  (while (search-forward-regexp "([[:space:]]*let[[:space:]]*\\[" nil t)
     (replace-match "clj2el-let [")))
 
 (defun clj2el-replace-lambdas ()
@@ -132,29 +128,47 @@
   (clj2el-replace-lambdas)
   (clj2el-replace-let)
   (clj2el-replace-=)
+  (clj2el-replace-nth)
   (clj2el-replace-map)
   (clj2el-replace-macro))
 
 (defun clj2el-compile-buffer ()
+  "Generates a new compilation buffer, switches to it and returns ref"
   (let* ((cur-buf-substring (buffer-substring-no-properties 1 (point-max)))
-         (cur-buf-name (buffer-file-name))
-         (new-buf-name (concat cur-buf-name "j"))
          (new-buf (generate-new-buffer (generate-new-buffer-name "compilation-buffer"))))
     (set-buffer new-buf)
     (insert cur-buf-substring)
     (clj2el-replace-essential-str)
+    new-buf))
+
+(defun clj2el-compile-buffer-and-save ()
+  (let* ((new-buf (clj2el-compile-buffer))
+         (cur-buf-name (buffer-file-name))
+         (new-buf-name (concat cur-buf-name "j")))
     (write-file new-buf-name)
     new-buf))
 
-(defun clj2el-compile-buffer-and-eval ()
+(defun clj2el-eval-buffer ()
+  "Eval a buffer after converting using clj2el's reader"
   (interactive)
   (let ((new-buf (clj2el-compile-buffer)))
+    (eval-buffer)
+    (kill-buffer new-buf)
+    (message "Finished without errors.")))
+
+(defun clj2el-compile-buffer-and-eval ()
+  "Eval a buffer after converting using clj2el's reader
+ and saving the buffer to a .elj file"
+  (interactive)
+  (let ((new-buf (clj2el-compile-buffer-and-save)))
     (eval-buffer)
     (kill-buffer new-buf)))
 
 (defun clj2el-compile-buffer-dont-eval ()
+  "Save a version of the buffer to a .elj file after 
+ runnng clj2el's reader"
   (interactive)
-  (let ((new-buf (clj2el-compile-buffer)))
+  (let ((new-buf (clj2el-compile-buffer-and-save)))
     (kill-buffer new-buf)))
 
 ;; -------------------------------------------------------------------------------------

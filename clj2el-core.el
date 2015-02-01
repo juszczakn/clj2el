@@ -24,21 +24,28 @@
 
 ;;; Code:
 
-;; Note: write using clj2el
-
-(require 'paredit)
 (require 'clj2el)
 
 ;; -------------------------------------------------------------------------------------
 ;; macros 
 
-(defmacro doc [sym]
-  (list 'documentation sym))
+(defmacro fn (param-list body)
+  `(lambda ,(clj2el-convert-arr-to-list param-list) ,body))
 
-(defmacro str [&rest s]
-  (list 'apply (quote 'concat) `(quote ,s)))
+(defmacro def (name body)
+  `(setf ,name ,body))
 
-(defmacro not= [a b]
+(defmacro defn (name param-list &rest body)
+  (let ((param-list (clj2el-convert-arr-to-list param-list)))
+    `(defun ,name ,param-list ,@body)))
+
+(defmacro doc (sym)
+  `(documentation ,sym))
+
+(defmacro str (&rest s)
+  `(apply 'concat (quote ,s)))
+
+(defmacro not= (a b)
   `(not (equal ,a ,b)))
 
 ;; -------------------------------------------------------------------------------------
