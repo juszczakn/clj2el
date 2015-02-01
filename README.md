@@ -29,7 +29,7 @@ Here's some simple examples:
 
     ; maps
     {:a 1 :b {:a 1 :b 2}} ;=> (clj2el-make-hash-table :a 1 :b (clj2el-make-hash-table :a 1 :b 2))
-    ; labmdas
+    ; lambdas
     #(+ % %1)             ;=> (lambda (&optional % %2 %3 %4) (+ % %2))
     
     (defn f [x]
