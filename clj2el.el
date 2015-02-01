@@ -105,7 +105,7 @@
 (defun clj2el-replace-let ()
   (beginning-of-buffer)
   (while (search-forward-regexp "([[:space:]]*let[[:space:]]*\\[" nil t)
-    (replace-match "clj2el-let [")))
+    (replace-match "(clj2el-let [")))
 
 (defun clj2el-replace-lambdas ()
   (beginning-of-buffer)
@@ -135,15 +135,15 @@
 (defun clj2el-compile-buffer ()
   "Generates a new compilation buffer, switches to it and returns ref"
   (let* ((cur-buf-substring (buffer-substring-no-properties 1 (point-max)))
-         (new-buf (generate-new-buffer (generate-new-buffer-name "compilation-buffer"))))
+         (new-buf (generate-new-buffer (generate-new-buffer-name "clj2el-compilation-buffer"))))
     (set-buffer new-buf)
     (insert cur-buf-substring)
     (clj2el-replace-essential-str)
     new-buf))
 
 (defun clj2el-compile-buffer-and-save ()
-  (let* ((new-buf (clj2el-compile-buffer))
-         (cur-buf-name (buffer-file-name))
+  (let* ((cur-buf-name (buffer-file-name))
+         (new-buf (clj2el-compile-buffer))
          (new-buf-name (concat cur-buf-name "j")))
     (write-file new-buf-name)
     new-buf))
